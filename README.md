@@ -16,3 +16,5 @@ This repo is where I’m learning GitHub step-by-step.
 - [x] Made commits
 - [ ] Open a Pull Request
 
+## Branch Practice
+This line was added on a separate branch.
