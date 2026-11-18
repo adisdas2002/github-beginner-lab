@@ -152,3 +152,39 @@ test('refuses unsafe session ids and invalid sessions', async () => {
   });
   assert.equal(bad.status, 400);
 });
+
+test('lists every power source and routes a turn to the chosen one', async () => {
+  const { createApp: make } = await import('../server/index.js');
+  const calls = [];
+  const fakeCc = {
+    id: 'claude-code',
+    demo: false,
+    listModels: async () => [{ id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', price: null, efforts: ['low'] }],
+    stream: async (args) => {
+      calls.push(args.model);
+      args.onText('From the subscription.');
+      return { text: 'From the subscription.', stopReason: 'end_turn', refused: false, servedBy: args.model, fellBack: false, usage: {} };
+    },
+  };
+  const store = new SessionStore(dir);
+  const app = make({ providers: { demo: createDemoProvider({ delayMs: 0 }), 'claude-code': fakeCc }, defaultBackend: 'demo', store, log: false });
+  const srv = app.listen(0, '127.0.0.1');
+  await once(srv, 'listening');
+  const url = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const info = await (await fetch(`${url}/api/models`)).json();
+    assert.deepEqual(info.backends.map((b) => b.id), ['demo', 'claude-code']);
+    assert.equal(info.defaultBackend, 'demo');
+    assert.equal(info.modelsByBackend['claude-code'][0].price, null);
+    const res = await fetch(`${url}/api/turn`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ participants, speaker: 0, transcript: [], settings: { backend: 'claude-code' }, turn: { number: 1, total: 2 } }),
+    });
+    const done = parseEvents(await res.text()).find((e) => e.event === 'done').data;
+    assert.equal(done.text, 'From the subscription.');
+    assert.deepEqual(calls, ['claude-opus-5-5']);
+  } finally {
+    srv.close();
+  }
+});

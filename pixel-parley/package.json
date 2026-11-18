@@ -7,6 +7,7 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
+    "subscription": "node server/index.js --subscription",
     "demo": "node server/index.js --demo",
     "dev": "node --watch server/index.js",
     "test": "node --test"

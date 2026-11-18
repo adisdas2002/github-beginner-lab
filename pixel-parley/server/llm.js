@@ -166,5 +166,5 @@ export function describeError(err, model) {
     }
     return { status: err.status || 500, message: err.message || 'Claude API error' };
   }
-  return { status: 500, message: (err && err.message) || 'Unknown error' };
+  return { status: (err && Number.isInteger(err.status) && err.status) || 500, message: (err && err.message) || 'Unknown error' };
 }

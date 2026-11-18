@@ -60,6 +60,9 @@ export class Setup {
   constructor(doc, { onChange }) {
     this.onChange = onChange;
     this.models = [];
+    this.backends = [];
+    this.modelsByBackend = {};
+    this.defaultBackend = 'demo';
     this.defaultModel = 'claude-opus-5-5';
     this.config = null;
     this.locked = false;
@@ -79,6 +82,8 @@ export class Setup {
       effort: $('effort'),
       knowledge: $('knowledge'),
       recapModel: $('recap-model'),
+      backend: $('backend'),
+      backendHint: $('backend-hint'),
       orderHint: $('order-hint'),
     };
     this.buildStatic();
@@ -89,6 +94,21 @@ export class Setup {
   setModels(models, defaultModel) {
     this.models = models || [];
     this.defaultModel = defaultModel || this.defaultModel;
+  }
+
+  // Power sources the server offers (API key, Claude Code subscription, demo),
+  // each with its own model list.
+  setBackends(backends, modelsByBackend, defaultBackend) {
+    this.backends = backends || [];
+    this.modelsByBackend = modelsByBackend || {};
+    this.defaultBackend = defaultBackend || (this.backends[0] && this.backends[0].id) || 'demo';
+  }
+
+  useBackend(id) {
+    const known = this.backends.some((b) => b.id === id);
+    this.config.backend = known ? id : this.defaultBackend;
+    const list = this.modelsByBackend[this.config.backend];
+    if (list) this.models = list;
   }
 
   modelName(id) {
@@ -105,6 +125,7 @@ export class Setup {
     c.turns = clampInt(c.turns, 1, 200, 12);
     c.recapModel = c.recapModel || this.defaultModel;
     this.config = c;
+    this.useBackend(c.backend);
     this.render();
   }
 
@@ -183,6 +204,11 @@ export class Setup {
       this.els.turns.value = this.config.turns;
       this.changed();
     });
+    this.els.backend.addEventListener('change', () => {
+      this.useBackend(this.els.backend.value);
+      this.render();
+      this.changed();
+    });
     for (const key of ['order', 'length', 'effort', 'knowledge', 'recapModel']) {
       this.els[key].addEventListener('change', () => {
         this.config[key] = this.els[key].value;
@@ -223,9 +249,24 @@ export class Setup {
     this.els.effort.value = c.effort;
     this.els.knowledge.value = c.knowledge;
     this.fillModelSelect(this.els.recapModel, c.recapModel);
+    this.renderBackend();
     for (const b of this.els.count.children) b.setAttribute('aria-checked', String(Number(b.textContent) === c.slots.length));
     this.renderOrderHint();
     this.renderCards();
+  }
+
+  renderBackend() {
+    const sel = this.els.backend;
+    sel.textContent = '';
+    for (const b of this.backends) sel.append(el('option', { value: b.id }, b.label));
+    sel.value = this.config.backend;
+    const hints = {
+      api: 'Billed to your Anthropic API key. The ≈ $ meter estimates the cost.',
+      'claude-code':
+        'Uses Claude Code on this computer, so usage comes from the Claude account it is signed in with (for example your Pro or Max plan). Personal use only. Each turn takes a few extra seconds to start.',
+      demo: 'Canned lines, no AI and no cost. Good for trying the controls.',
+    };
+    this.els.backendHint.textContent = hints[this.config.backend] || '';
   }
 
   renderOrderHint() {

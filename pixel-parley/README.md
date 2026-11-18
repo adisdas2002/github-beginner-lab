@@ -34,8 +34,27 @@ cp .env.example .env    # then put your key in .env
 npm start
 ```
 
-The server reads `PIXEL_PARLEY_API_KEY` first, then `ANTHROPIC_API_KEY`. With neither set, it
-starts in demo mode, and the page shows a **DEMO MODE** badge.
+The server reads `PIXEL_PARLEY_API_KEY` first, then `ANTHROPIC_API_KEY`.
+
+### Or use your Claude subscription
+
+If [Claude Code](https://claude.com/claude-code) is installed on your computer and signed in with
+your Claude account (for example a Pro or Max plan), the game can use it instead of an API key:
+
+```bash
+npm run subscription
+```
+
+You can also switch at any time in Setup under **Powered by → Claude Code (my subscription)**. Each
+line is written by running Claude Code on your computer, so it comes out of your plan's usage
+limits rather than API credit.
+- **Usage limits:** six agents over many turns adds up, so you may reach your plan's limits sooner
+  than you expect.
+- **Speed:** each turn takes a few extra seconds to start.
+- **Personal use only:** Anthropic doesn't allow offering your subscription to other people.
+
+The game checks for Claude Code when it starts. With no API key and no Claude Code, it runs in
+demo mode, and the page shows a **DEMO MODE** badge (or **SUBSCRIPTION** when using Claude Code).
 
 ## How to play
 
@@ -122,6 +141,9 @@ rough estimate from the token usage the API reports.
 - Turns are streamed, and requests use automatic prompt caching, so a growing conversation
   re-reads its history from cache.
 - Reply length is controlled by the prompt; **Thinking effort** trades depth for speed.
+- In **Claude Code (my subscription)** mode no prices are shown and the cost meter is hidden,
+  because usage comes from your plan. The refusal fallback below is an API feature and isn't used
+  in that mode.
 - For models that support it, requests opt into Anthropic's server-side **refusal fallback**. If a
   safety classifier declines, the API retries on its recommended fallback model, and the dialog
   shows "answered by … (safety fallback)".
@@ -137,6 +159,9 @@ Saved to `logs/<id>.json` after every turn (that folder is git-ignored). Set
 | --- | --- | --- |
 | `PIXEL_PARLEY_API_KEY` | (none) | Anthropic API key for this app (checked first) |
 | `ANTHROPIC_API_KEY` | (none) | Standard Anthropic key, used if the one above is unset |
+| `PIXEL_PARLEY_BACKEND` | (auto) | Starting power source: `api`, `claude-code` or `demo` |
+| `PIXEL_PARLEY_CLAUDE_COMMAND` | `claude` | Path to the Claude Code command, if it isn't on your PATH |
+| `PIXEL_PARLEY_CLAUDE_CODE` | (unset) | `0` turns the Claude Code option off |
 | `PORT` | `3000` | Server port |
 | `HOST` | `127.0.0.1` | Interface to listen on; use `0.0.0.0` to reach it from other devices |
 | `PIXEL_PARLEY_LOG_DIR` | `logs/` | Where conversations are saved |
@@ -170,6 +195,7 @@ How it's put together:
 | `server/index.js` | Express app: static files, `POST /api/turn` and `/api/recap` (server-sent events), sessions |
 | `server/llm.js` | Claude via `@anthropic-ai/sdk`: streaming, effort, fallbacks, error mapping |
 | `server/prompts.js` | Persona system prompts, per-agent message history, recap prompt, reply clean-up |
+| `server/claude-code.js` | "Claude Code (my subscription)" provider: runs `claude -p` with tools off |
 | `server/demo.js` | Offline demo provider |
 | `shared/` | Figures, models, cast naming and turn order, used by both server and browser |
 | `public/js/stage.js` | The 320×180 pixel stage: hall, torches, hourglass, spotlight, bubbles |

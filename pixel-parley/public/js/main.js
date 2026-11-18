@@ -20,6 +20,8 @@ const $ = (id) => document.getElementById(id);
 const app = {
   demo: false,
   models: [],
+  modelsByBackend: {},
+  backends: [],
   defaultModel: 'claude-opus-5-5',
   view: null, // the session shown in Log / Recap
   nextWaiter: null,
@@ -34,7 +36,24 @@ let setup;
 // ------------------------------------------------------------------ helpers
 
 function modelInfo(id) {
-  return app.models.find((m) => m.id === id) || catalogEntry(id) || { id, name: prettyModelName(id), price: null };
+  const lists = [app.modelsByBackend.api || [], ...Object.values(app.modelsByBackend)];
+  for (const list of lists) {
+    const m = list.find((x) => x.id === id);
+    if (m) return m;
+  }
+  return catalogEntry(id) || { id, name: prettyModelName(id), price: null };
+}
+
+function currentBackend() {
+  return setup.getConfig().backend;
+}
+
+function updateBadge() {
+  const badge = $('mode-badge');
+  const backend = currentBackend();
+  badge.hidden = backend === 'api';
+  badge.textContent = backend === 'claude-code' ? 'SUBSCRIPTION' : 'DEMO MODE';
+  badge.style.background = backend === 'claude-code' ? 'var(--cyan)' : '';
 }
 
 function shortModel(id) {
@@ -160,7 +179,8 @@ function updateProgress() {
 function updateCost() {
   const s = app.view;
   const el = $('cost-meter');
-  if (!s || app.demo) {
+  const backend = s && ((s.settings && s.settings.backend) || (s.demo ? 'demo' : 'api'));
+  if (!s || backend !== 'api') {
     el.textContent = '';
     return;
   }
@@ -273,7 +293,13 @@ async function generateRecap() {
   try {
     await postStream(
       '/api/recap',
-      { participants: s.participants.map(slotOf), transcript: s.transcript.map(slimEntry), agenda: s.agenda, model },
+      {
+        participants: s.participants.map(slotOf),
+        transcript: s.transcript.map(slimEntry),
+        agenda: s.agenda,
+        model,
+        backend: (s.settings && s.settings.backend) || currentBackend(),
+      },
       {
         signal: app.recapAbort.signal,
         onEvent: (event, data) => {
@@ -387,7 +413,9 @@ async function openSaved(id, { replay = false } = {}) {
     effort: session.settings.effort,
     knowledge: session.settings.knowledge,
     recapModel: session.settings.recapModel || app.defaultModel,
+    backend: session.settings.backend || (session.demo ? 'demo' : 'api'),
   });
+  updateBadge();
   stage.setCast(session.participants);
   stage.setActive(-1, null);
   renderLog(session);
@@ -459,8 +487,9 @@ async function startConversation() {
     title: makeTitle(config.agenda, participants),
     createdAt: new Date().toISOString(),
     agenda: config.agenda.trim(),
-    demo: app.demo,
+    demo: config.backend === 'demo',
     settings: {
+      backend: config.backend,
       length: config.length,
       effort: config.effort,
       knowledge: config.knowledge,
@@ -728,6 +757,7 @@ async function init() {
   setup = new Setup(document, {
     onChange: (config) => {
       savePref('config', config);
+      updateBadge();
       if (!convo.active) {
         if (convo.session) convo.load(null);
         previewCast();
@@ -748,10 +778,16 @@ async function init() {
   app.demo = Boolean(info.demo);
   app.models = info.models || [];
   app.defaultModel = info.defaultModel || app.defaultModel;
-  $('mode-badge').hidden = !app.demo;
+  const defaultBackend = info.defaultBackend || (app.demo ? 'demo' : 'api');
+  app.backends = info.backends || [{ id: defaultBackend, label: defaultBackend }];
+  app.modelsByBackend = info.modelsByBackend || { [defaultBackend]: app.models };
 
   setup.setModels(app.models, app.defaultModel);
-  setup.setConfig(loadPref('config', null) || defaultConfig(app.defaultModel));
+  setup.setBackends(app.backends, app.modelsByBackend, defaultBackend);
+  const saved = loadPref('config', null);
+  // a fresh page load starts on the server's preferred power source
+  setup.setConfig({ ...(saved || defaultConfig(app.defaultModel)), backend: defaultBackend });
+  updateBadge();
 
   wireTabs();
   wireControls();
@@ -760,8 +796,8 @@ async function init() {
   previewCast();
   updateControls();
 
-  const welcome = app.demo
-    ? 'DEMO MODE: no API key was found, so the cast reads from a short canned script. Add PIXEL_PARLEY_API_KEY or ANTHROPIC_API_KEY to bring them to life. Hover over anyone on stage to meet them.'
+  const welcome = currentBackend() === 'demo'
+    ? 'DEMO MODE: no API key or Claude Code login was found, so the cast reads from a short canned script. Add PIXEL_PARLEY_API_KEY, or install Claude Code and sign in, to bring them to life. Hover over anyone on stage to meet them.'
     : 'Welcome to Pixel Parley! Pick 2 to 6 agents (Claude models, or historical and mythical figures voiced by the model you choose), set an agenda, then press START. Hover over anyone on stage to meet them.';
   dialog.show({ name: 'PIXEL PARLEY', text: info.warning ? `${welcome}\n(Model list unavailable: ${info.warning})` : welcome });
 }

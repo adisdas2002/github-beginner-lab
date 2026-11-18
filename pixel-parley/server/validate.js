@@ -13,6 +13,7 @@ const SAFE_LABEL_RE = /^[\p{L}\p{N} .,'()&+:/-]{1,60}$/u;
 const LENGTHS = ['short', 'medium', 'long'];
 const EFFORTS = ['low', 'medium', 'high'];
 const KNOWLEDGE = ['era', 'aware'];
+const BACKENDS = ['api', 'claude-code', 'demo'];
 
 function fail(msg) {
   throw new ValidationError(msg);
@@ -107,6 +108,7 @@ export function parseSettings(s = {}) {
     effort: oneOf(s.effort, EFFORTS, 'low'),
     knowledge: oneOf(s.knowledge, KNOWLEDGE, 'era'),
     order: oneOf(s.order, TURN_MODES, 'natural'),
+    backend: oneOf(s.backend, BACKENDS, undefined),
   };
 }
 
@@ -133,6 +135,7 @@ export function parseRecapRequest(body) {
     transcript,
     agenda: str(body.agenda, 2000, 'Agenda'),
     model: parseModel(body.model, 'Recap model'),
+    backend: oneOf(body.backend, BACKENDS, undefined),
   };
 }
 
