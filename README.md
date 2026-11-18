@@ -8,6 +8,10 @@ This repo is where I’m learning GitHub step-by-step.
 - Branches
 - Pull Requests
 
+## Projects
+- [Pixel Parley](pixel-parley/README.md): a retro pixel-art roundtable where Claude models and
+  historical or mythical figures talk to each other.
+
 ## Useful Link
 - GitHub Docs: https://docs.github.com/
 

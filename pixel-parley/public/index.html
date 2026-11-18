@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixel Parley</title>
+    <meta name="description" content="A retro pixel-art roundtable where Claude models and historical or mythical figures talk to each other." />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Crect width='8' height='8' fill='%23141a52'/%3E%3Crect x='1' y='1' width='6' height='4' fill='%23f2efe6'/%3E%3Crect x='2' y='5' width='2' height='2' fill='%23f2efe6'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23141a52'/%3E%3Crect x='5' y='2' width='1' height='1' fill='%23141a52'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/fonts/press-start-2p/400.css" />
+    <link rel="stylesheet" href="/fonts/vt323/400.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PIXEL PARLEY</div>
+      <div class="topbar-right">
+        <span id="mode-badge" class="badge" hidden>DEMO MODE</span>
+        <button id="sound-btn" class="icon-btn" aria-pressed="false" title="Typing sounds">SOUND: OFF</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="stage-col" aria-label="Stage">
+        <div class="screen" id="screen">
+          <div class="canvas-wrap" id="canvas-wrap">
+            <canvas id="stage" width="320" height="180" aria-label="Pixel-art stage showing the participants"></canvas>
+            <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+          </div>
+          <div class="window dialog" id="dialog">
+            <div class="portrait-frame"><canvas id="portrait" width="66" height="66" aria-hidden="true"></canvas></div>
+            <div class="dialog-body">
+              <div class="dialog-head">
+                <span id="dialog-name" class="dialog-name">PIXEL PARLEY</span>
+                <span id="dialog-meta" class="dialog-meta"></span>
+              </div>
+              <div id="dialog-text" class="dialog-text" aria-live="polite">Choose your cast in Setup, then press START.</div>
+            </div>
+            <button id="dialog-next" class="dialog-next" title="Skip text / next turn (Space)" aria-label="Skip text or go to the next turn">▼</button>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="control-group">
+            <button id="start-btn" class="btn btn-primary">▶ START</button>
+            <button id="pause-btn" class="btn" disabled>❚❚ PAUSE</button>
+            <button id="step-btn" class="btn" disabled title="Take exactly one more turn">NEXT TURN</button>
+            <button id="stop-btn" class="btn btn-danger" disabled>■ STOP</button>
+            <button id="more-btn" class="btn" disabled title="Continue the conversation for 4 more turns">+4 TURNS</button>
+          </div>
+          <div class="status-line">
+            <span id="turn-counter" class="turn-counter">TURN 0/12</span>
+            <span id="state-label" class="state-label">READY</span>
+            <span id="cost-meter" class="cost-meter" title="Rough estimate from the token usage the API reported"></span>
+          </div>
+          <div class="control-group small">
+            <label class="inline">Text speed <input id="speed" type="range" min="15" max="140" value="50" /></label>
+            <label class="inline"><input id="auto-advance" type="checkbox" checked /> Auto-advance</label>
+          </div>
+        </div>
+
+        <form id="moderator-form" class="moderator" autocomplete="off">
+          <label for="moderator-input" class="sr-only">Moderator note</label>
+          <input id="moderator-input" type="text" maxlength="600" placeholder="Interject as the moderator, e.g. “Caesar, answer Gandhi directly.”" disabled />
+          <button class="btn" id="moderator-send" disabled>SAY</button>
+        </form>
+        <p class="disclaimer">Figures are AI portrayals for education and entertainment. Their words are generated, not real quotes.</p>
+      </section>
+
+      <aside class="side window" aria-label="Panels">
+        <div class="tabs" role="tablist">
+          <button role="tab" id="tab-setup" aria-selected="true" aria-controls="panel-setup">SETUP</button>
+          <button role="tab" id="tab-log" aria-selected="false" aria-controls="panel-log" tabindex="-1">LOG</button>
+          <button role="tab" id="tab-recap" aria-selected="false" aria-controls="panel-recap" tabindex="-1">RECAP</button>
+          <button role="tab" id="tab-saved" aria-selected="false" aria-controls="panel-saved" tabindex="-1">SAVED</button>
+        </div>
+
+        <section id="panel-setup" class="panel" role="tabpanel" aria-labelledby="tab-setup">
+          <div class="lock-banner" id="lock-banner" hidden>A conversation is running. Stop it to change the cast.</div>
+          <fieldset id="setup-fields">
+            <div class="field">
+              <div class="field-label">Quick scenarios</div>
+              <div class="chips" id="scenario-chips"></div>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="agenda">Agenda</label>
+              <textarea id="agenda" rows="3" maxlength="2000" placeholder="Leave empty for an open-ended discussion."></textarea>
+              <div class="chips small" id="agenda-chips"></div>
+            </div>
+
+            <div class="field">
+              <div class="field-label">Cast <span class="hint">2 to 6 agents</span></div>
+              <div class="count-picker" id="count-picker" role="radiogroup" aria-label="Number of agents"></div>
+              <div id="agent-cards" class="agent-cards"></div>
+            </div>
+
+            <div class="field grid-2">
+              <label>Turns <input id="turns" type="number" min="1" max="200" value="12" /></label>
+              <label>Turn order
+                <select id="order">
+                  <option value="natural">Natural</option>
+                  <option value="round-robin">Round robin</option>
+                  <option value="random">Random</option>
+                </select>
+              </label>
+              <label>Reply length
+                <select id="length">
+                  <option value="short">Short</option>
+                  <option value="medium">Medium</option>
+                  <option value="long">Long</option>
+                </select>
+              </label>
+              <label>Thinking effort
+                <select id="effort">
+                  <option value="low">Low (fastest)</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+              <label>Figures know
+                <select id="knowledge">
+                  <option value="era">Only their own era</option>
+                  <option value="aware">History since, too</option>
+                </select>
+              </label>
+              <label>Recap model <select id="recap-model"></select></label>
+            </div>
+            <p class="hint" id="order-hint"></p>
+          </fieldset>
+        </section>
+
+        <section id="panel-log" class="panel" role="tabpanel" aria-labelledby="tab-log" hidden>
+          <div class="panel-actions">
+            <button id="log-copy" class="btn small">COPY</button>
+            <button id="log-md" class="btn small">.MD</button>
+            <button id="log-json" class="btn small">.JSON</button>
+          </div>
+          <h2 id="log-title" class="log-title"></h2>
+          <ol id="log-list" class="log-list"></ol>
+          <p id="log-empty" class="empty">No conversation yet. Press START to begin.</p>
+        </section>
+
+        <section id="panel-recap" class="panel" role="tabpanel" aria-labelledby="tab-recap" hidden>
+          <div class="panel-actions">
+            <button id="recap-btn" class="btn btn-primary small">✦ GENERATE RECAP</button>
+            <button id="recap-download" class="btn small" disabled>.MD</button>
+          </div>
+          <p class="hint" id="recap-hint">The recap uses the recap model chosen in Setup.</p>
+          <article id="recap-body" class="recap-body" aria-live="polite"></article>
+        </section>
+
+        <section id="panel-saved" class="panel" role="tabpanel" aria-labelledby="tab-saved" hidden>
+          <div class="panel-actions">
+            <button id="saved-refresh" class="btn small">REFRESH</button>
+          </div>
+          <ul id="saved-list" class="saved-list"></ul>
+          <p id="saved-empty" class="empty">Conversations save automatically after every turn.</p>
+        </section>
+      </aside>
+    </main>
+
+    <template id="agent-card-template">
+      <div class="agent-card">
+        <canvas class="agent-sprite" width="52" height="34" aria-hidden="true"></canvas>
+        <div class="agent-fields">
+          <div class="agent-head"><span class="agent-slot"></span><span class="agent-name"></span></div>
+          <label>Who <select class="agent-identity"></select></label>
+          <label>Model <select class="agent-model"></select></label>
+          <div class="agent-custom" hidden>
+            <label>Name <input class="agent-custom-name" type="text" maxlength="60" placeholder="e.g. Marie Curie" /></label>
+            <label>Notes <textarea class="agent-custom-notes" rows="2" maxlength="1500" placeholder="Optional: who they are and how they speak"></textarea></label>
+            <label>Prop <select class="agent-custom-prop"></select></label>
+          </div>
+          <p class="agent-blurb"></p>
+        </div>
+      </div>
+    </template>
+
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>
