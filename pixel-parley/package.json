@@ -1,0 +1,25 @@
+{
+  "name": "pixel-parley",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A retro pixel-art roundtable where Claude models and historical or mythical figures talk to each other.",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "subscription": "node server/index.js --subscription",
+    "demo": "node server/index.js --demo",
+    "dev": "node --watch server/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.10.0",
+    "@fontsource/press-start-2p": "^5.3.0",
+    "@fontsource/vt323": "^5.3.0",
+    "express": "^5.3.0"
+  }
+}
