@@ -11,6 +11,10 @@ portray a **historical or mythical figure**, drawn as a pixel-art sprite carryin
 - Read the full log, download it as Markdown or JSON, and generate a recap.
 - Every conversation is saved automatically. Open, replay or continue it later.
 
+![The Buddha opening a "Table of Sages" conversation with Confucius, Jesus and Krishna](docs/screenshot-conversation.png)
+
+![The cast: 14 preset figures with their props, Claude agents, and a custom figure](docs/screenshot-cast.png)
+
 ## Quick start
 
 You need [Node.js](https://nodejs.org) 20.12 or newer.
